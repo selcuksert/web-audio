@@ -8,6 +8,11 @@ export default function Player() {
     const audioContextRef = useRef(undefined);
     const modGainRef = useRef(undefined);
     const audioStackRef = useRef([]);
+    const numOfChannels = useRef(1);
+    const bitDepth = useRef(16);
+    const sampleRate = useRef(16000);
+    const wavHeaderSize = useRef(44);
+    const packetsPerSec = useRef(10);
 
     useEffect(() => {
         AudioContext.current = window.AudioContext || window.webkitAudioContext;
@@ -20,28 +25,36 @@ export default function Player() {
         }
     }, [volume]);
 
+    function getBufferSize() {
+        return (sampleRate.current / packetsPerSec.current) * (bitDepth.current / 8) * numOfChannels.current + wavHeaderSize.current;
+    }
+
     function readSoundStream(audioContext, bypasser, modGain) {
         let audioStack = audioStackRef.current;
         audioContext.resume();
         let nextTime = 0;
+
         fetch('http://localhost:8090/api/stream/data').then((response) => {
+            console.log('fetched');
             let reader = response.body.getReader();
 
             function read() {
                 return reader.read().then(({ value, done }) => {
                     if (value && value.buffer) {
                         let dataBuffer = value.buffer;
-                        if (dataBuffer.byteLength > 0) {
+
+                        if (dataBuffer.byteLength === getBufferSize()) {
                             audioContext.decodeAudioData(dataBuffer, (audioBuffer) => {
                                 audioStack.push(audioBuffer);
                                 if (audioStack.length) {
                                     scheduleBuffers();
                                 }
-                            }, (err) => { });
-                            if (done) {
-                                console.log('done');
-                                return;
-                            }
+                            });
+                        }
+
+                        if (done) {
+                            console.log('done');
+                            return;
                         }
                         read();
                     }
@@ -53,14 +66,14 @@ export default function Player() {
 
         function scheduleBuffers() {
             while (audioStack.length) {
-                var buffer = audioStack.shift();
-                var source = audioContext.createBufferSource();
+                let buffer = audioStack.shift();
+                let source = audioContext.createBufferSource();
                 source.buffer = buffer;
                 source.connect(audioContext.destination);
                 if (nextTime == 0)
                     nextTime = audioContext.currentTime + 0.5;  /// add 250ms latency to work well across systems - tune this appropriately.
                 source.start(nextTime);
-                nextTime += source.buffer.duration; // Make the next buffer wait the length of the last buffer before being played
+                nextTime += source.buffer.duration; // Make the next buffer wait the length of the last buffer before being played    
             };
         }
     }
@@ -80,7 +93,7 @@ export default function Player() {
     }
 
     async function play() {
-        audioContextRef.current = new AudioContext.current({ sampleRate: 16000 });
+        audioContextRef.current = new AudioContext.current({ sampleRate: sampleRate.current });
         let audioContext = audioContextRef.current;
         await audioContext.audioWorklet.addModule('bypass-processor.js');
         let bypasser = new AudioWorkletNode(audioContext, 'bypass-processor');

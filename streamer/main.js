@@ -52,10 +52,12 @@ tcpServer.on('connection', (connection) => {
     });
 
     connection.once('close', () => {
+        readableStream.pause();
         console.log('connection from %s closed', remoteAddress);
     });
 
     connection.on('error', (err) => {
+        readableStream.pause();
         console.log('Connection %s error: %s', remoteAddress, err.message);
     });
 });
