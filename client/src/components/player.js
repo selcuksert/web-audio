@@ -38,28 +38,25 @@ export default function Player() {
             console.log('fetched');
             let reader = response.body.getReader();
 
-            function read() {
-                return reader.read().then(({ value, done }) => {
-                    if (value && value.buffer) {
-                        let dataBuffer = value.buffer;
-
-                        if (dataBuffer.byteLength === getBufferSize()) {
-                            audioContext.decodeAudioData(dataBuffer, (audioBuffer) => {
-                                audioStack.push(audioBuffer);
-                                if (audioStack.length) {
-                                    scheduleBuffers();
-                                }
-                            });
-                        }
-
-                        if (done) {
-                            console.log('done');
-                            return;
-                        }
-                        read();
+            async function read() {
+                const { value, done } = await reader.read();
+                if (value && value.buffer) {
+                    let dataBuffer = value.buffer;
+                    if (dataBuffer.byteLength === getBufferSize()) {
+                        audioContext.decodeAudioData(dataBuffer, (audioBuffer) => {
+                            audioStack.push(audioBuffer);
+                            if (audioStack.length) {
+                                scheduleBuffers();
+                            }
+                        });
                     }
-                });
 
+                    if (done) {
+                        console.log('done');
+                        return;
+                    }
+                    read();
+                }
             }
             read();
         });
@@ -69,11 +66,11 @@ export default function Player() {
                 let buffer = audioStack.shift();
                 let source = audioContext.createBufferSource();
                 source.buffer = buffer;
-                source.connect(audioContext.destination);
+                source.connect(modGain).connect(bypasser).connect(audioContext.destination);
                 if (nextTime == 0)
                     nextTime = audioContext.currentTime + 0.5;  /// add 250ms latency to work well across systems - tune this appropriately.
                 source.start(nextTime);
-                nextTime += source.buffer.duration; // Make the next buffer wait the length of the last buffer before being played    
+                nextTime += source.buffer.duration; // Make the next buffer wait the length of the last buffer before being played
             };
         }
     }
@@ -88,8 +85,8 @@ export default function Player() {
         fetch('http://localhost:8090/api/stream/stop').then(() => {
             let audioContext = audioContextRef.current;
             audioContext.suspend();
-            audioStackRef.current = []
-        }, (err) => console.error(err));;
+            audioStackRef.current = [];
+        }, (err) => console.error(err));
     }
 
     async function play() {
@@ -99,6 +96,9 @@ export default function Player() {
         let bypasser = new AudioWorkletNode(audioContext, 'bypass-processor');
         modGainRef.current = new GainNode(audioContext);
         let modGain = modGainRef.current;
+        if (modGain && modGain.gain) {
+            modGain.gain.value = volume / 100;
+        }
         setPlaying(true);
         startSoundStream(audioContext, bypasser, modGain);
     }

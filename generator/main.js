@@ -11,6 +11,7 @@ const __dirname = path.dirname(__filename);
 const SAMPLE_RATE = 16000
 const BIT_DEPTH = 16
 const CHANNEL_CNT = 1;
+const PACKET_CNT_PER_SEC = 10;
 const PACKET_SIZE_PER_SEC_KB = SAMPLE_RATE * (BIT_DEPTH / 8) * CHANNEL_CNT;
 
 const TCP_SRV_PORT = 12345;
@@ -20,7 +21,7 @@ const options = {
   channels: CHANNEL_CNT,
   sampleRate: SAMPLE_RATE,
   bitDepth: BIT_DEPTH,
-  dataLength: PACKET_SIZE_PER_SEC_KB/10 * 1000
+  dataLength: PACKET_SIZE_PER_SEC_KB / 10 * 1000
 };
 
 const headersBuffer = getFileHeaders(options);
@@ -55,7 +56,7 @@ const sendPcmData = () => {
     reader.on('readable', async () => {
       let chunk;
       // Use a loop to make sure to read data
-      while (null !== (chunk = reader.read(PACKET_SIZE_PER_SEC_KB/10))) {
+      while (null !== (chunk = reader.read(PACKET_SIZE_PER_SEC_KB / PACKET_CNT_PER_SEC))) {
         let fullBuffer = Buffer.concat([headersBuffer, chunk]);
         if (!tcpClient.destroyed) {
           tcpClient.write(fullBuffer, (err) => {
@@ -64,7 +65,7 @@ const sendPcmData = () => {
             }
           });
         }
-        await sleep(2000/10);
+        await sleep(2000 / PACKET_CNT_PER_SEC);
       }
     });
   });
