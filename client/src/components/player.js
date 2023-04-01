@@ -46,7 +46,7 @@ export default function Player() {
                         audioContext.decodeAudioData(dataBuffer, (audioBuffer) => {
                             audioStack.push(audioBuffer);
                             if (audioStack.length) {
-                                scheduleBuffers();
+                                processAudioBuffer();
                             }
                         });
                     }
@@ -60,15 +60,15 @@ export default function Player() {
             }
             read();
         });
-
-        function scheduleBuffers() {
+        // Reference: https://gist.github.com/hillct/b1b993470f0294e818c52df730448fa2#file-create-wav-from-buffer-js
+        function processAudioBuffer() {
             while (audioStack.length) {
                 let buffer = audioStack.shift();
                 let source = audioContext.createBufferSource();
                 source.buffer = buffer;
                 source.connect(modGain).connect(bypasser).connect(audioContext.destination);
                 if (nextTime == 0)
-                    nextTime = audioContext.currentTime + 0.5;  /// add 250ms latency to work well across systems - tune this appropriately.
+                    nextTime = audioContext.currentTime + 0.5;  // add 250ms latency to work well across systems - tune this appropriately.
                 source.start(nextTime);
                 nextTime += source.buffer.duration; // Make the next buffer wait the length of the last buffer before being played
             };
