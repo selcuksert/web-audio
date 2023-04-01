@@ -3,7 +3,7 @@
 // found in the LICENSE file.
 
 /**
- * A simple bypass node demo.
+ * A simple bypass node that directly connects input to output.
  *
  * @class BypassProcessor
  * @extends AudioWorkletProcessor
@@ -27,4 +27,5 @@ class BypassProcessor extends AudioWorkletProcessor {
     }
 }
 
+// Register processor with name
 registerProcessor('bypass-processor', BypassProcessor);

@@ -35,16 +35,27 @@ export default function Player() {
         let nextTime = 0;
 
         fetch('http://localhost:8090/api/stream/data').then((response) => {
-            console.log('fetched');
+            // Get ReadableStreamDefaultReader from ReadableStream of response body
             let reader = response.body.getReader();
 
+            // Buffered WAV data processing with Audio API.
+            // Reference: 
+            // https://gist.github.com/hillct/b1b993470f0294e818c52df730448fa2#file-create-wav-from-buffer-js
             async function read() {
+                // Get next chunk in the stream's internal queue and
+                // a flag to identify whether there exists a data in queue.
                 const { value, done } = await reader.read();
                 if (value && value.buffer) {
+                    // Get ArrayBuffer within chunked response.
                     let dataBuffer = value.buffer;
+                    // Only process data buffers with expected buffer size
+                    // to avoid distortion.  
                     if (dataBuffer.byteLength === getBufferSize()) {
+                        // Decode audio data from chunked response data
+                        // and push that onto stack.  
                         audioContext.decodeAudioData(dataBuffer, (audioBuffer) => {
                             audioStack.push(audioBuffer);
+                            // When stack started to fill, process audio data stack
                             if (audioStack.length) {
                                 processAudioBuffer();
                             }
@@ -52,25 +63,42 @@ export default function Player() {
                     }
 
                     if (done) {
-                        console.log('done');
+                        // Stream's internal queue is empty. Stop reading.
                         return;
                     }
+
+                    // Process next data chunk. 
                     read();
                 }
             }
+
+            // Start processing ReadableStream of fetch API response.
             read();
         });
-        // Reference: https://gist.github.com/hillct/b1b993470f0294e818c52df730448fa2#file-create-wav-from-buffer-js
+
         function processAudioBuffer() {
+            // Process stack until it is emptied.
             while (audioStack.length) {
+                // Get and remove first chunk from stack.
                 let buffer = audioStack.shift();
+                // Create source node of AudioContext
                 let source = audioContext.createBufferSource();
+                // Set decoded audio buffer data as source node buffer
+                // to inform browser with the media asset to be played.
                 source.buffer = buffer;
-                source.connect(modGain).connect(bypasser).connect(audioContext.destination);
+                // Establish audio graph 
+                source.connect(modGain)
+                    .connect(bypasser)
+                    .connect(audioContext.destination);
                 if (nextTime == 0)
-                    nextTime = audioContext.currentTime + 0.5;  // add 250ms latency to work well across systems - tune this appropriately.
+                    // Add 250ms latency to work well across systems.
+                    // Tune this appropriately for your need.
+                    nextTime = audioContext.currentTime + 0.5;
+                // Start playing  
                 source.start(nextTime);
-                nextTime += source.buffer.duration; // Make the next buffer wait the length of the last buffer before being played
+                // Make the next buffer wait the length of the 
+                // last buffer before being played 
+                nextTime += source.buffer.duration;
             };
         }
     }
@@ -92,7 +120,9 @@ export default function Player() {
     async function play() {
         audioContextRef.current = new AudioContext.current({ sampleRate: sampleRate.current });
         let audioContext = audioContextRef.current;
+        // Load custom audio processing script. Should be able to be loaded via [Base URL]/bypass-processor.js
         await audioContext.audioWorklet.addModule('bypass-processor.js');
+        // Initiate AudioWorkletNode to bridge the worklet with app
         let bypasser = new AudioWorkletNode(audioContext, 'bypass-processor');
         modGainRef.current = new GainNode(audioContext);
         let modGain = modGainRef.current;
