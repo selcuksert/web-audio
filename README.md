@@ -7,7 +7,7 @@ This project is implemented for Medium article [Playing PCM data using WebAudioÂ
 ## Audio Graph
 
 ![Generic Flow](./docs/models/webaudio.png)
-![Sample Flow](./docs/models/webaudio-sample-flow.png)
+![Sample Flow](./docs/models/webaudio-sample flow.png)
 
 ## Generator Service
 
