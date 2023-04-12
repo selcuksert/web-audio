@@ -25,6 +25,9 @@ To start streamer service invoke following:
 node ./streamer/main.js
 ```
 
+## Architecture
+![arch](./docs/models/webaudio-arch.png)
+
 ##  Audio Player
 
 For details on player Web app please refer to the [documentation](./client/README.md).
